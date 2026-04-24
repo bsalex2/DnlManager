@@ -1,0 +1,9 @@
+_files/
+output_*
+release/
+Debug/
+Makefile
+Makefile.Debug
+Makefile.Release
+.qmake.stash
+DnlManager.pro.user
