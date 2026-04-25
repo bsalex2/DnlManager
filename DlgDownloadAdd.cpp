@@ -58,8 +58,11 @@ CDlgDownloadAdd::CDlgDownloadAdd(QWidget *parent,bool bResume, const QString &Ex
 
     if ( clipUrl.isValid() && !clipUrl.scheme().isEmpty() )
     {
-        qDebug() << "url scheme: " << clipUrl.scheme();
-        m_UrlEdit->setText( clipUrl.toString() );
+        QString scheme = clipUrl.scheme().toLower();
+        qDebug() << "url scheme: " << scheme;
+
+        if ( scheme == "http" || scheme == "https" )
+            m_UrlEdit->setText( clipUrl.toString() );
     }
 
     m_UrlInfoButton = new QPushButton("", this);
@@ -75,7 +78,7 @@ CDlgDownloadAdd::CDlgDownloadAdd(QWidget *parent,bool bResume, const QString &Ex
     directoryOrFileLabel->setAlignment( Qt::AlignRight );
     outputFileLayout->addWidget( directoryOrFileLabel, 1, 0  );
     outputFileLayout->addWidget( m_DirOrFileEdit = new QLineEdit(this), 1, 1 );
-    m_DirOrFileEdit->setText( bResume ? ExistingFileName : CDownloadManager::getDefaultDownloadDir()  );
+    m_DirOrFileEdit->setText( bResume ? QDir::toNativeSeparators(ExistingFileName) : CDownloadManager::getDefaultDownloadDir()  );
 
     QPushButton *browseButton = new QPushButton("Browse...", this);
     browseButton->setFixedWidth( browseButton->sizeHint().width() + 6 );
@@ -215,7 +218,7 @@ void CDlgDownloadAdd::onBrowseOutputDirectory()
     QString filename = QFileDialog::getExistingDirectory( this, "Select Output Directory", CDownloadManager::getDefaultDownloadDir() );
 
     if (!filename.isEmpty()) {
-        m_DirOrFileEdit->setText(filename);
+        m_DirOrFileEdit->setText(  QDir::toNativeSeparators(filename) );
     }
 }
 
@@ -224,7 +227,7 @@ void CDlgDownloadAdd::onBrowseResumeFile()
     QString filename = QFileDialog::getOpenFileName( this, "Select file", CDownloadManager::getDefaultDownloadDir() );
 
     if (!filename.isEmpty()) {
-        m_DirOrFileEdit->setText(filename);
+        m_DirOrFileEdit->setText( QDir::toNativeSeparators(filename) );
     }
 }
 
