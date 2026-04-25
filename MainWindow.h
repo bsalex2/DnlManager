@@ -51,7 +51,7 @@ public:
 
 private Q_SLOTS:
 
-    void onExit(bool checked);
+    void onExitMenu(bool checked);
     void onDownloadNew();
     void onDownloadResume();
     void onIgnoreSSLErrors(bool checked);
@@ -59,7 +59,7 @@ private Q_SLOTS:
     void onTimerRefresh();
     void onPause();
     void onRun();
-    void onDelete();
+    void onDelete();    
     void onDropFile( const QString &filePath );
     void onCurrentRowChanged(const QModelIndex &current, const QModelIndex &previous);
     void onContextMenu(const QPoint &pos);
@@ -78,6 +78,7 @@ protected:
 
     CDownloadJobShared getFocusedItemJob();
     void doDelete();
+
 
 Q_SIGNALS:
 

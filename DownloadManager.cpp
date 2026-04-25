@@ -26,9 +26,8 @@
 #include <type_traits>
 #include <chrono>
 
-CDownloadJob::CDownloadJob( CDownloadManager *pMgr, ID_TYPE Id, const QUrl &url, const QString &dir, const QString &filename, CDownloadJob::DownloadState State, uint64_t DbRecordId ) :
-    m_DbRecordId( DbRecordId ),
-    m_pMgr(pMgr)
+CDownloadJob::CDownloadJob( ID_TYPE Id, const QUrl &url, const QString &dir, const QString &filename, CDownloadJob::DownloadState State, uint64_t DbRecordId ) :
+    m_DbRecordId( DbRecordId )
 {    
     m_Timer.start();
     m_DownloadStartTime = getTickInMiliSec();
@@ -52,7 +51,7 @@ CDownloadJob::CDownloadJob( CDownloadManager *pMgr, ID_TYPE Id, const QUrl &url,
 
 }
 
-void CDownloadJob::downloadInternal(QNetworkAccessManager *pManager)
+void CDownloadJob::downloadInternal(CDownloadManager *pManager)
 {
     m_FirstRead = true;
     m_DownloadStartTime = getTickInMiliSec();
@@ -67,9 +66,9 @@ void CDownloadJob::downloadInternal(QNetworkAccessManager *pManager)
         request.setRawHeader( "Range", QString("bytes=%1-").arg(m_ResumeOffset).toUtf8() );
     }
 
-    m_Reply = pManager->get(request);
+    m_Reply = pManager->getNetworkAccessManager()->get(request);
 
-    if (  m_pMgr->getDownloadFlags().testFlag( DownloadFlag::IgnoreSSLErrors )  )
+    if (  pManager->getDownloadFlags().testFlag( DownloadFlag::IgnoreSSLErrors )  )
         m_Reply->ignoreSslErrors();
 
     m_Reply->setReadBufferSize( 50*1024 );
@@ -79,7 +78,7 @@ void CDownloadJob::downloadInternal(QNetworkAccessManager *pManager)
     connect( m_Reply, &QNetworkReply::metaDataChanged, this, &CDownloadJob::onMetaDataChanged );
 }
 
-void CDownloadJob::download(QNetworkAccessManager *pManager)
+void CDownloadJob::download(CDownloadManager *pManager)
 {
     assert( m_State == DownloadState::Wait );
 
@@ -241,7 +240,7 @@ void CDownloadJob::pause()
     m_Reply->abort();
 }
 
-void CDownloadJob::resume( QNetworkAccessManager *pManager )
+void CDownloadJob::resume(CDownloadManager *pManager )
 {
     bool bSuccess;
 
@@ -299,6 +298,28 @@ void CDownloadJob::resume( QNetworkAccessManager *pManager )
     downloadInternal( pManager );
 }
 
+bool CDownloadJob::canDelete()
+{
+    return m_State != CDownloadJob::DownloadState::RequestSending &&
+           m_State != CDownloadJob::DownloadState::ReplyReceiving;
+}
+
+bool CDownloadJob::canPause()
+{
+    return
+        m_State == CDownloadJob::DownloadState::RequestSending ||
+        m_State == CDownloadJob::DownloadState::ReplyReceiving ||
+        m_State == CDownloadJob::DownloadState::Wait
+        ;
+}
+
+bool CDownloadJob::canRun()
+{
+    return
+        m_State == CDownloadJob::DownloadState::Paused ||
+        m_State == CDownloadJob::DownloadState::Error
+        ;
+}
 
 void CDownloadJob::onFinished()
 {
@@ -363,6 +384,11 @@ void CDownloadJob::onReadyRead()
 
             switch ( uHttpStatus )
             {
+                case 400:
+                {
+                    errStr += " (Bad Request)";
+                    break;
+                }
                 case 403:
                 {
                     errStr += " (Forbidden)";
@@ -657,7 +683,21 @@ CDownloadManager::CDownloadManager() :
 
 CDownloadManager::~CDownloadManager()
 {
+}
+
+void CDownloadManager::abortAllJobsAndSaveDatabase()
+{
     saveDatabase();
+
+    for ( auto iter = m_Jobs.begin(); iter != m_Jobs.end(); iter++ )
+    {
+        auto &Job = *iter;
+
+        if ( Job->canPause() )
+            Job->pause();
+    }
+
+    m_Jobs.clear();
 }
 
 CDownloadJobShared CDownloadManager::newDownloadJob(const QUrl &url, const QString &directory )
@@ -667,12 +707,12 @@ CDownloadJobShared CDownloadManager::newDownloadJob(const QUrl &url, const QStri
     if ( !getNextId( &Id ) )
         return nullptr;
 
-    CDownloadJob *pJob = new CDownloadJob( this, Id, url, directory, "", CDownloadJob::DownloadState::Wait );
+    CDownloadJob *pJob = new CDownloadJob( Id, url, directory, "", CDownloadJob::DownloadState::Wait );
 
     if ( pJob == nullptr )
         return nullptr;
 
-    pJob->download( &m_NetworkAccessManager );
+    pJob->download( this );
 
     CDownloadJobShared ResultJob( pJob );
 
@@ -691,12 +731,12 @@ CDownloadJobShared CDownloadManager::resumeDownloadJob(const QUrl &url, const QS
 
     QFileInfo fileInfo( FilePath );
 
-    CDownloadJob *pJob = new CDownloadJob( this, Id, url, fileInfo.absoluteFilePath(), fileInfo.fileName(), CDownloadJob::DownloadState::Paused );
+    CDownloadJob *pJob = new CDownloadJob( Id, url, fileInfo.absoluteFilePath(), fileInfo.fileName(), CDownloadJob::DownloadState::Paused );
 
     if ( pJob == nullptr )
         return nullptr;
 
-    pJob->resume( &m_NetworkAccessManager );
+    pJob->resume( this );
 
     CDownloadJobShared ResultJob( pJob );
 
@@ -704,14 +744,6 @@ CDownloadJobShared CDownloadManager::resumeDownloadJob(const QUrl &url, const QS
 
     emit jobListUpdated();
     return ResultJob;
-}
-
-bool CDownloadManager::canDeleteJob(const CDownloadJobShared &Job)
-{
-    CDownloadJob::DownloadState State = Job->getState();
-
-    return State != CDownloadJob::DownloadState::RequestSending &&
-           State != CDownloadJob::DownloadState::ReplyReceiving;
 }
 
 bool CDownloadManager::canDeleteJob(uint64_t jobNum)
@@ -724,7 +756,7 @@ bool CDownloadManager::canDeleteJob(uint64_t jobNum)
 
     auto currJob = m_Jobs.at( jobNum );
 
-    return canDeleteJob( currJob );
+    return currJob->canDelete();
 }
 
 void CDownloadManager::deleteJob(uint64_t jobNum, bool bDeleteFile)
@@ -869,7 +901,7 @@ void CDownloadManager::loadDatabase()
 
             CDownloadJob::ID_TYPE ItemId = 0;
             getNextId( &ItemId );
-            CDownloadJob *pJob = new CDownloadJob( this, ItemId, url, dir, fileName, CDownloadJob::DownloadState::Paused, DbRecordId );
+            CDownloadJob *pJob = new CDownloadJob( ItemId, url, dir, fileName, CDownloadJob::DownloadState::Paused, DbRecordId );
 
             QFileInfo fileInfo( pJob->getFilePath() );
             pJob->setTotalDataReceived( fileInfo.size() );

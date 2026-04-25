@@ -86,9 +86,10 @@ MainWindow::MainWindow(QWidget *parent)
     resize(800,500);
 }
 
-void MainWindow::onExit(bool checked)
+void MainWindow::onExitMenu(bool checked)
 {
     Q_UNUSED(checked);
+
     QApplication::quit();
 }
 
@@ -197,7 +198,7 @@ void MainWindow::onRun()
     if ( !currentJob )
         return;
 
-    currentJob->resume( m_DownloadManagerPtr->getNetworkAccessManager() );
+    currentJob->resume( m_DownloadManagerPtr.data() );
 }
 
 void MainWindow::onDelete()
@@ -266,6 +267,26 @@ void MainWindow::onContextMenu(const QPoint &pos)
 
     QMenu contextMenu;
 
+    auto currentJob = getFocusedItemJob();
+
+    if ( currentJob )
+    {
+        if ( currentJob->canRun() )
+        {
+            QAction *runAction = contextMenu.addAction("Run");
+            connect( runAction, &QAction::triggered, this, &MainWindow::onRun );
+        }
+
+        if ( currentJob->canPause() )
+        {
+            QAction *pauseAction = contextMenu.addAction("Pause");
+            connect( pauseAction, &QAction::triggered, this, &MainWindow::onPause );
+        }
+
+        if ( contextMenu.actions().count() > 0 )
+            contextMenu.addSeparator();
+    }
+
     QAction *copyFilePathAction = contextMenu.addAction("Copy File Path");
     connect( copyFilePathAction, &QAction::triggered, fnCopyFilePath );
 
@@ -320,7 +341,7 @@ void MainWindow::createMenuBar()
 
     QAction *exitAction = new QAction("Exit");
     fileMenu->addAction( exitAction );
-    connect(exitAction, &QAction::triggered, this, &MainWindow::onExit );
+    connect(exitAction, &QAction::triggered, this, &MainWindow::onExitMenu );
 
     //-- file menu end
 
@@ -386,35 +407,10 @@ void MainWindow::updateToolbarButtonsState()
     if ( !Job )
         return;
 
-    auto State = Job->getState();
+    m_DeleteAction->setEnabled( Job->canDelete() );
+    m_PauseAction->setEnabled( Job->canPause() );
+    m_RunAction->setEnabled( Job->canRun() );
 
-    m_DeleteAction->setEnabled( m_DownloadManagerPtr->canDeleteJob(Job) );
-
-    switch (State) {
-    case CDownloadJob::DownloadState::Wait:
-        // handle Wait state
-
-        m_RunAction->setEnabled(false);
-        m_PauseAction->setEnabled(false);
-        break;
-
-    case CDownloadJob::DownloadState::RequestSending:
-    case CDownloadJob::DownloadState::ReplyReceiving:
-        m_RunAction->setEnabled(false);
-        m_PauseAction->setEnabled(true);
-
-        break;
-    case CDownloadJob::DownloadState::Completed:
-        m_RunAction->setEnabled(false);
-        m_PauseAction->setEnabled(false);
-        break;
-
-    case CDownloadJob::DownloadState::Paused:
-    case CDownloadJob::DownloadState::Error:
-        m_RunAction->setEnabled(true);
-        m_PauseAction->setEnabled(false);
-        break;
-    }
 }
 
 void MainWindow::dropEvent(QDropEvent *event)
@@ -452,6 +448,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
     //TODO: warn an user for incomplete downloads
     event->accept();
+
+    m_DownloadManagerPtr->abortAllJobsAndSaveDatabase();
 }
 
 CDownloadJobShared MainWindow::getFocusedItemJob()

@@ -61,15 +61,13 @@ public:
         Error
     };
 
-
 private:
 
     CDownloadJob() = delete;
     CDownloadJob( const CDownloadJob & ) = delete;
 
     void
-    downloadInternal( QNetworkAccessManager *pManager );
-
+    downloadInternal( CDownloadManager *pManager );
 
 protected:
 
@@ -77,10 +75,10 @@ protected:
 
     friend class CDownloadManager;
 
-    CDownloadJob( CDownloadManager *pMgr, ID_TYPE Id, const QUrl &url, const QString &dir, const QString &filename, CDownloadJob::DownloadState State, uint64_t DbRecordId = 0 );
+    CDownloadJob( ID_TYPE Id, const QUrl &url, const QString &dir, const QString &filename, CDownloadJob::DownloadState State, uint64_t DbRecordId = 0 );
 
     void
-    download( QNetworkAccessManager *pManager );
+    download( CDownloadManager *pManager );
 
     void
     setTotalDataReceived( uint64_t totalDataSize );
@@ -145,7 +143,16 @@ public:
     pause();
 
     void
-    resume( QNetworkAccessManager *pManager );
+    resume( CDownloadManager *pManager );
+
+    bool
+    canDelete();
+
+    bool
+    canPause();
+
+    bool
+    canRun();
 
 private Q_SLOTS:
 
@@ -189,8 +196,6 @@ private:
     uint64_t m_ResumeOffset;
     bool m_FirstRead;
     uint64_t m_DbRecordId;
-    CDownloadManager *m_pMgr;
-
 };
 
 using CDownloadJobShared = QSharedPointer<CDownloadJob>;
@@ -204,15 +209,15 @@ public:
     CDownloadManager();
     ~CDownloadManager();
 
+    //on quit
+    void
+    abortAllJobsAndSaveDatabase();
+
     CDownloadJobShared
     newDownloadJob( const QUrl &url, const QString &directory );
 
     CDownloadJobShared
     resumeDownloadJob( const QUrl &url, const QString &FilePath );
-
-    static
-    bool
-    canDeleteJob( const CDownloadJobShared &Job );
 
     bool
     canDeleteJob( uint64_t jobNum );
