@@ -27,7 +27,7 @@
 CDownloadDatabase::CDownloadDatabase(const QString& dbPath)
 {
     bool bSuccess;
-    m_db = QSqlDatabase::addDatabase("QSQLITE"); // Use SQLite driver
+    m_db = QSqlDatabase::addDatabase( "QSQLITE" ); // Use SQLite driver
     m_db.setDatabaseName(dbPath);
 
     bSuccess = initializeDatabase();

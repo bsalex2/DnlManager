@@ -26,6 +26,7 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QClipboard>
+#include <QDir>
 
 #include "DlgDownloadAdd.h"
 #include "DownloadsTableModel.h"
@@ -33,7 +34,8 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
     m_DownloadsTable(nullptr),
-    m_DownloadManagerPtr(  QSharedPointer<CDownloadManager>::create() ),
+    m_DownloadManagerPtr(  QSharedPointer<CDownloadManager>::create(
+          QSharedPointer<CDownloadDatabase>::create( CDownloadManager::getDefaultDownloadDir() + QDir::separator() + "DnlManager.db" ) ) ),
     m_RunAction(nullptr),
     m_PauseAction(nullptr),
     m_DeleteAction(nullptr)

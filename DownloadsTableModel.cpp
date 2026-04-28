@@ -63,7 +63,7 @@ QVariant DownloadsTableModel::data(const QModelIndex &index, int role) const {
             return currentJob->getProgress();
 
         case Column::Speed: // Speed
-            return currentJob->getSpeedString( currentJob->getSpeedInBytesPerSec() );
+            return getSpeedString( currentJob->getSpeedInBytesPerSec() );
 
         case Column::Url:
             return currentJob->getUrl() ;  //"https://download.test/file1.7z";
@@ -93,4 +93,22 @@ QVariant DownloadsTableModel::headerData(int section, Qt::Orientation orientatio
         }
     }
     return QVariant();
+}
+
+QString DownloadsTableModel::getSpeedString(uint64_t SpeedInBytesPerSec) const
+{
+    if ( SpeedInBytesPerSec == 0 )
+        return "";
+
+    double fSpeed = SpeedInBytesPerSec;
+    int unitIndex = 0;
+
+    QStringList units{ "B/s", "KB/s", "MB/s",  "GB/s" };
+
+    while ( fSpeed >= 1024 && unitIndex < units.size() - 1) {
+        fSpeed /= 1024;
+        unitIndex++;
+    }
+
+    return QString::number(fSpeed, 'f', 2) + " " + units.at(unitIndex);
 }

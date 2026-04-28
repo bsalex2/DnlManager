@@ -79,6 +79,11 @@ private Q_SLOTS:
 
 private:
 
+    QString getSpeedString( uint64_t SpeedInBytesPerSec ) const;
+
+
+private:
+
     CDownloadManagerShared m_DownloadManagerPtr;
 };
 

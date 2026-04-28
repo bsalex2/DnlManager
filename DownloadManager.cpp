@@ -200,24 +200,6 @@ CDownloadJob::getSpeedInBytesPerSec()
     return BytesPerSec;
 }
 
-QString CDownloadJob::getSpeedString( uint64_t SpeedInBytesPerSec )
-{
-    if ( SpeedInBytesPerSec == 0 )
-        return "";
-
-    double fSpeed = SpeedInBytesPerSec;
-    int unitIndex = 0;
-
-    QStringList units{ "B/s", "KB/s", "MB/s",  "GB/s" };
-
-    while ( fSpeed >= 1024 && unitIndex < units.size() - 1) {
-        fSpeed /= 1024;
-        unitIndex++;
-    }
-
-    return QString::number(fSpeed, 'f', 2) + " " + units.at(unitIndex);
-}
-
 uint64_t CDownloadJob::getDbRecordId()
 {
     return m_DbRecordId;
@@ -672,8 +654,8 @@ void CDownloadJob::DebugDumpReplyHeaders(const char *Msg)
 }
 
 
-CDownloadManager::CDownloadManager() :
-    m_DownloadDatabase( getDefaultDownloadDir() + QDir::separator() + "downloads.db" )
+CDownloadManager::CDownloadManager(QSharedPointer<CDownloadDatabaseBase> Database) :
+    m_DownloadDatabase( Database ) //getDefaultDownloadDir() + QDir::separator() + "downloads.db"
 {
     m_NextId = 1;
     m_DownloadFlags = DownloadFlag::DefaultFlag;
@@ -778,7 +760,7 @@ void CDownloadManager::deleteJob(uint64_t jobNum, bool bDeleteFile)
 
     if ( Job->getDbRecordId() != 0 )
     {
-        m_DownloadDatabase.deleteRecord(Job->getDbRecordId());
+        m_DownloadDatabase->deleteRecord(Job->getDbRecordId());
     }
 
     QString jobFilePath = Job->getFilePath();
@@ -849,7 +831,7 @@ void CDownloadManager::saveDatabase()
 {
     uint64_t DbId;
 
-    if ( !m_DownloadDatabase.isOk() )
+    if ( !m_DownloadDatabase->isOk() )
         return;
 
     for ( auto iter = m_Jobs.begin(); iter != m_Jobs.end(); iter++ )
@@ -862,14 +844,14 @@ void CDownloadManager::saveDatabase()
         {
             if ( DbId != 0 )
             {
-                m_DownloadDatabase.deleteRecord( DbId );
+                m_DownloadDatabase->deleteRecord( DbId );
             }
         }
         else
         {
             if ( DbId == 0 )
             {
-                DbId = m_DownloadDatabase.insert(
+                DbId = m_DownloadDatabase->insert(
                     job->getUrl().toString(),
                     job->getDirectory(),
                     job->getFileName()
@@ -893,10 +875,10 @@ bool CDownloadManager::getNextId(CDownloadJob::ID_TYPE *pId)
 
 void CDownloadManager::loadDatabase()
 {
-    if ( !m_DownloadDatabase.isOk() )
+    if ( !m_DownloadDatabase->isOk() )
         return;
 
-    m_DownloadDatabase.enumerate(
+    m_DownloadDatabase->enumerate(
         [this](uint64_t DbRecordId, const QString &url, const QString &dir, const QString &fileName) {
 
             CDownloadJob::ID_TYPE ItemId = 0;

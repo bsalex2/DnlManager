@@ -29,26 +29,44 @@
 #include <vector>
 #include <functional>
 
+class CDownloadDatabaseBase: public QObject
+{
+    Q_OBJECT
+    
+public:
 
-class CDownloadDatabase : public QObject
+    virtual ~CDownloadDatabaseBase() = default;
+
+    virtual bool isOk() const = 0;
+    
+    virtual uint64_t insert(const QString &url, const QString& dir, const QString &fileName ) = 0;
+    
+    typedef std::function<void (uint64_t Id, const QString &url, const QString &dir, const QString &fileName)> PFN_DATABASE_ENUM;
+    virtual void enumerate(PFN_DATABASE_ENUM pfnCallback) = 0;
+    virtual void deleteRecord(uint64_t Id) = 0;
+        
+};
+
+class CDownloadDatabase : public CDownloadDatabaseBase
 {
     Q_OBJECT
 
 public:
-    explicit CDownloadDatabase(const QString &dbPath = "downloads.db");
+
+    CDownloadDatabase( const QString &dbPath );
     ~CDownloadDatabase();
 
-    bool isOk() const;
+    virtual bool isOk() const override;
 
-    uint64_t insert(const QString &url, const QString& dir, const QString &fileName );
-
+    virtual uint64_t insert(const QString &url, const QString& dir, const QString &fileName ) override;
+    
     typedef std::function<void (uint64_t Id, const QString &url, const QString &dir, const QString &fileName)> PFN_DATABASE_ENUM;
+    virtual void enumerate(PFN_DATABASE_ENUM pfnCallback) override;
 
-    void enumerate(PFN_DATABASE_ENUM pfnCallback);
-
-    void deleteRecord(uint64_t Id);
+    virtual void deleteRecord(uint64_t Id) override;
 
 private:
+
     QSqlDatabase m_db;
 
     bool initializeDatabase();

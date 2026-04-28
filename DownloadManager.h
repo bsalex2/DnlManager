@@ -33,6 +33,7 @@
 #include <QElapsedTimer>
 #include <QFlags>
 
+
 #include "DownloadDatabase.h"
 
 enum DownloadFlag {
@@ -103,13 +104,11 @@ public:
     uint64_t
     getDataReceived();
 
-    //check: isContentLengthAvailable
     uint32_t
     getProgress();
 
     QUrl
     getUrl();
-
 
     QString
     getFilePath();
@@ -131,10 +130,6 @@ public:
 
     uint64_t
     getSpeedInBytesPerSec();
-
-    static
-    QString
-    getSpeedString( uint64_t SpeedInBytesPerSec );
 
     uint64_t
     getDbRecordId();
@@ -206,7 +201,7 @@ class CDownloadManager : public QObject
 
 public:
 
-    CDownloadManager();
+    CDownloadManager( QSharedPointer<CDownloadDatabaseBase> Database );
     ~CDownloadManager();
 
     //on quit
@@ -258,7 +253,7 @@ private:
     QNetworkAccessManager m_NetworkAccessManager;
     uint32_t m_NextId;
     DownloadFlags m_DownloadFlags;
-    CDownloadDatabase m_DownloadDatabase;
+    QSharedPointer<CDownloadDatabaseBase> m_DownloadDatabase;
 
 private:
 
