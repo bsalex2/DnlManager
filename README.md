@@ -1,6 +1,6 @@
-# DnlMananer
+# DnlManager
 
-DnlMananer is a simple Download Manager written using Qt (6.4.2). 
+DnlManager is a simple Download Manager written using Qt (6.4.2). 
 
 ## Features
 - Supports HTTP & HTTPS targets
