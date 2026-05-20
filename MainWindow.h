@@ -62,7 +62,8 @@ private Q_SLOTS:
     void onDelete();
     void onOpenDownloadDir();
     void onDropFile( const QString &filePath );
-    void onCurrentRowChanged(const QModelIndex &current, const QModelIndex &previous);
+    void onTableCurrentRowChanged(const QModelIndex &current, const QModelIndex &previous);
+    void onTableSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
     void onContextMenu(const QPoint &pos);
     void onListKeyPressed(QKeyEvent *event);
 

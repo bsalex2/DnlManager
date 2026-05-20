@@ -28,6 +28,7 @@
 #include <QClipboard>
 #include <QDir>
 #include <QDesktopServices>
+#include <algorithm>
 
 #include "DlgDownloadAdd.h"
 #include "DownloadsTableModel.h"
@@ -72,13 +73,14 @@ MainWindow::MainWindow(QWidget *parent)
     m_DownloadsTable->resizeRowsToContents();
 
     m_DownloadsTable->setSelectionBehavior(QAbstractItemView::SelectionBehavior::SelectRows);
-    m_DownloadsTable->setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection); //QAbstractItemView::SelectionMode::ExtendedSelection
+    m_DownloadsTable->setSelectionMode(QAbstractItemView::SelectionMode::ExtendedSelection); //QAbstractItemView::SelectionMode::ExtendedSelection QAbstractItemView::SelectionMode::SingleSelection
 
     m_DownloadsTable->setContextMenuPolicy(Qt::CustomContextMenu);
     QObject::connect( m_DownloadsTable, &QTableView::customContextMenuRequested, this, &MainWindow::onContextMenu );
     QObject::connect( m_DownloadsTable, &TableViewEx::keyPressed, this, &MainWindow::onListKeyPressed );
 
-    QObject::connect( m_DownloadsTable->selectionModel(), &QItemSelectionModel::currentRowChanged, this, &MainWindow::onCurrentRowChanged );
+    QObject::connect( m_DownloadsTable->selectionModel(), &QItemSelectionModel::currentRowChanged, this, &MainWindow::onTableCurrentRowChanged );
+    QObject::connect( m_DownloadsTable->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::onTableSelectionChanged );
 
     setCentralWidget(m_DownloadsTable);
 
@@ -104,7 +106,13 @@ void MainWindow::onDownloadNew()
 
     if ( dlg.exec() )
     {
-        m_DownloadManagerPtr->newDownloadJob( dlg.getUrl(), dlg.getDir() );
+        std::size_t Row = -1;
+        m_DownloadManagerPtr->newDownloadJob( &Row, dlg.getUrl(), dlg.getDir() );
+
+        QModelIndex modelIndex = m_DownloadsTable->model()->index(Row, 0);
+        m_DownloadsTable->selectionModel()->select(modelIndex, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        m_DownloadsTable->setCurrentIndex( modelIndex );
+        m_DownloadsTable->scrollTo(modelIndex, QAbstractItemView::EnsureVisible);
     }
 }
 
@@ -125,7 +133,7 @@ void MainWindow::onIgnoreSSLErrors(bool checked)
 
 void MainWindow::onDbgTest()
 {
-    //m_DownloadManagerPtr->newDownloadJob( QUrl("https://www.google.com"), CDownloadManager::getDefaultDownloadDir() );
+    m_DownloadManagerPtr->newDownloadJob( nullptr, QUrl("https://www.google.com"), CDownloadManager::getDefaultDownloadDir() );
 }
 
 void MainWindow::onTimerRefresh()
@@ -229,11 +237,11 @@ void MainWindow::onDropFile(const QString &filePath)
     }
 }
 
-void MainWindow::onCurrentRowChanged(const QModelIndex &current, const QModelIndex &previous)
+void MainWindow::onTableCurrentRowChanged(const QModelIndex &current, const QModelIndex &previous)
 {
     Q_UNUSED( previous );
 
-    updateToolbarButtonsState();
+    //updateToolbarButtonsState();
 
     auto currentJob = m_DownloadManagerPtr->getJob( current.row() );
 
@@ -248,6 +256,13 @@ void MainWindow::onCurrentRowChanged(const QModelIndex &current, const QModelInd
 
     statusBar()->showMessage("");
 
+}
+
+void MainWindow::onTableSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected)
+{
+    Q_UNUSED( selected );
+    Q_UNUSED( deselected );
+    updateToolbarButtonsState();
 }
 
 void MainWindow::onContextMenu(const QPoint &pos)
@@ -311,9 +326,23 @@ void MainWindow::onContextMenu(const QPoint &pos)
 
 void MainWindow::onListKeyPressed(QKeyEvent *event)
 {
-    if ( Qt::Key_Delete == event->key() )
+    switch ( event->key() )
     {
-        doDelete();
+        case Qt::Key_Delete:
+        {
+            doDelete();
+            break;
+        }
+
+        case Qt::Key_A:
+        {
+            if ( event->modifiers() == Qt::KeyboardModifier::ControlModifier )
+            {
+                m_DownloadsTable->selectAll();
+            }
+
+            break;
+        }
     }
 }
 
@@ -388,6 +417,8 @@ void MainWindow::createToolbar()
     m_DeleteAction = new QAction( QApplication::style()->standardIcon(QStyle::SP_TrashIcon), "Delete", this );
     connect( m_DeleteAction, &QAction::triggered, this, &MainWindow::onDelete );
     toolbar->addAction(m_DeleteAction);
+
+    toolbar->addSeparator();
 
     m_OpenFileDirAction = new QAction( QApplication::style()->standardIcon(QStyle::SP_DirOpenIcon), "Open directory", this );
     connect( m_OpenFileDirAction, &QAction::triggered, this, &MainWindow::onOpenDownloadDir );
@@ -482,61 +513,58 @@ CDownloadJobShared MainWindow::getFocusedItemJob()
 }
 
 void MainWindow::doDelete()
-{
-    QModelIndex currentIndex = m_DownloadsTable->currentIndex();
+{    
+    QModelIndexList selection = m_DownloadsTable->selectionModel()->selectedRows();
 
-    if ( !currentIndex.isValid() )
+    if ( selection.count() == 0 )
         return;
 
-    auto Job = m_DownloadManagerPtr->getJob( currentIndex.row() );
+    std::sort(selection.begin(), selection.end(),
+        [](const QModelIndex &a, const QModelIndex &b) {
+            return a.row() < b.row();
+        }
+        );
 
-    if ( !Job )
+    bool deleteDataCheckBoxAvailable = true;
+
+    for ( auto iterCurIndex = selection.rbegin(); iterCurIndex != selection.rend(); iterCurIndex++ )
     {
-        return;
+        CDownloadJobShared Job = m_DownloadManagerPtr->getJob( iterCurIndex->row() );
+
+        if ( Job && Job->getState() == CDownloadJob::DownloadState::Completed )
+            deleteDataCheckBoxAvailable = false;
     }
 
     QMessageBox msgBox;
     msgBox.setWindowTitle( QApplication::applicationName() );
-    msgBox.setText( QString("Are you sure you want to delete the selected download?") );
+    msgBox.setText( QString("Are you sure you want to delete the selected download(s)?") );
     msgBox.setIcon(QMessageBox::Question);
     msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
     msgBox.setDefaultButton(QMessageBox::No);
 
-    QCheckBox *deleteDataCheckBox = nullptr;
+    QCheckBox *deleteFileCheckBox = nullptr;
 
-    if ( Job->getState() != CDownloadJob::DownloadState::Completed )
+    if ( deleteDataCheckBoxAvailable )
     {
-        deleteDataCheckBox = new QCheckBox("Delete the file");
-        deleteDataCheckBox->setChecked(true);
-        msgBox.setCheckBox(deleteDataCheckBox);
+        deleteFileCheckBox = new QCheckBox("Delete the file");
+        deleteFileCheckBox->setChecked(true);
+        msgBox.setCheckBox(deleteFileCheckBox);
     }
 
-    if ( Job->getState() != CDownloadJob::DownloadState::Completed )
+    if ( msgBox.exec() != QMessageBox::Yes )
+        return;
+
+    bool deleteFile = false;
+
+    if ( deleteFileCheckBox != nullptr )
+        deleteFile = deleteFileCheckBox->isChecked();
+
+    for ( auto iterCurIndex = selection.rbegin(); iterCurIndex != selection.rend(); iterCurIndex++ )
     {
-        if ( msgBox.exec() != QMessageBox::Yes )
-            return;
+        m_DownloadManagerPtr->deleteJob( iterCurIndex->row(), deleteFile );
     }
 
-    bool deleteData = false;
-
-    if ( deleteDataCheckBox != nullptr )
-        deleteData = deleteDataCheckBox->isChecked();
-
-    m_DownloadManagerPtr->deleteJob( currentIndex.row(), deleteData );
-
-    if ( Job->getState() != CDownloadJob::DownloadState::Completed )
-    {
-        QString jobFilePath = Job->getFilePath();
-
-        if ( deleteData && !jobFilePath.isEmpty() && QFile::exists( jobFilePath ) )
-        {
-            if ( !QFile::remove(jobFilePath) )
-            {
-                QMessageBox::warning(this, "Error", "Failed to delete the file.");
-            }
-        }
-    }
-
+    updateToolbarButtonsState();
 }
 
 

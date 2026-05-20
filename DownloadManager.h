@@ -209,7 +209,7 @@ public:
     abortAllJobsAndSaveDatabase();
 
     CDownloadJobShared
-    newDownloadJob( const QUrl &url, const QString &directory );
+    newDownloadJob( std::size_t *pIndex, const QUrl &url, const QString &directory );
 
     CDownloadJobShared
     resumeDownloadJob( const QUrl &url, const QString &FilePath );

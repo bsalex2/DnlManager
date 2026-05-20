@@ -381,6 +381,12 @@ void CDownloadJob::onReadyRead()
                     errStr += " (Not Found)";
                     break;
                 }
+
+                case 429:
+                {
+                    errStr += " (Too Many Requests)";
+                    break;
+                }
             }
 
             setErrorState( errStr );
@@ -682,7 +688,7 @@ void CDownloadManager::abortAllJobsAndSaveDatabase()
     m_Jobs.clear();
 }
 
-CDownloadJobShared CDownloadManager::newDownloadJob(const QUrl &url, const QString &directory )
+CDownloadJobShared CDownloadManager::newDownloadJob(std::size_t *pIndex, const QUrl &url, const QString &directory )
 {
     CDownloadJob::ID_TYPE Id = 0;
 
@@ -699,6 +705,9 @@ CDownloadJobShared CDownloadManager::newDownloadJob(const QUrl &url, const QStri
     CDownloadJobShared ResultJob( pJob );
 
     m_Jobs.push_back( ResultJob );
+
+    if ( pIndex )
+        *pIndex = m_Jobs.size() - 1;
 
     emit jobListUpdated();
     return ResultJob;

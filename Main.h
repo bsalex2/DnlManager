@@ -23,6 +23,8 @@
 #include <QApplication>
 #include <QNetworkProxy>
 
+#define APP_NAME "Download Manager"
+
 class MyApplication : public QApplication
 {
 public:
@@ -32,7 +34,7 @@ public:
     {
         // Custom initialization
         qDebug() << "MyApplication started.";
-        setApplicationName( "Download Manager" );
+        setApplicationName( APP_NAME );
     }
 
     ~MyApplication()

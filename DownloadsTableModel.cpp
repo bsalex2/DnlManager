@@ -83,7 +83,7 @@ QVariant DownloadsTableModel::headerData(int section, Qt::Orientation orientatio
     if (orientation == Qt::Horizontal) {
         switch (section) {
         case Column::RowNumber: return "#";
-        case Column::FileName: return "Name";
+        case Column::FileName: return "File Name";
         case Column::Size: return "Size";
         case Column::Completed: return "Completed";
         case Column::Progress: return "Progress";
