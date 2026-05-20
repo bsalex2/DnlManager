@@ -7,6 +7,7 @@ DnlManager is a simple Download Manager written using Qt (6.4.2).
 - Resumes download from existing file (if supported by the remote server)
 - Drag & Drop functionality
 
+![Screenshot of DnlManager](images/dnlmgr.jpg)
 
 ## Build Instructions
 
