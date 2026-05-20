@@ -59,7 +59,8 @@ private Q_SLOTS:
     void onTimerRefresh();
     void onPause();
     void onRun();
-    void onDelete();    
+    void onDelete();
+    void onOpenDownloadDir();
     void onDropFile( const QString &filePath );
     void onCurrentRowChanged(const QModelIndex &current, const QModelIndex &previous);
     void onContextMenu(const QPoint &pos);
@@ -96,6 +97,7 @@ private:
     QAction *m_RunAction;
     QAction *m_PauseAction;
     QAction *m_DeleteAction;
+    QAction *m_OpenFileDirAction;
 };
 
 #endif // MAINWINDOW_H

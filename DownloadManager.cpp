@@ -660,7 +660,7 @@ CDownloadManager::CDownloadManager(QSharedPointer<CDownloadDatabaseBase> Databas
     m_NextId = 1;
     m_DownloadFlags = DownloadFlag::DefaultFlag;
 
-    loadDatabase();
+    loadJobsFromDatabase();
 }
 
 CDownloadManager::~CDownloadManager()
@@ -669,7 +669,7 @@ CDownloadManager::~CDownloadManager()
 
 void CDownloadManager::abortAllJobsAndSaveDatabase()
 {
-    saveDatabase();
+    saveJobsToDatabase();
 
     for ( auto iter = m_Jobs.begin(); iter != m_Jobs.end(); iter++ )
     {
@@ -827,7 +827,7 @@ void CDownloadManager::setIgnoreSSLErrorsFlag(bool bOn)
     m_DownloadFlags.setFlag( DownloadFlag::IgnoreSSLErrors, bOn );
 }
 
-void CDownloadManager::saveDatabase()
+void CDownloadManager::saveJobsToDatabase()
 {
     uint64_t DbId;
 
@@ -873,7 +873,7 @@ bool CDownloadManager::getNextId(CDownloadJob::ID_TYPE *pId)
     return true;
 }
 
-void CDownloadManager::loadDatabase()
+void CDownloadManager::loadJobsFromDatabase()
 {
     if ( !m_DownloadDatabase->isOk() )
         return;

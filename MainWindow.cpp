@@ -27,6 +27,7 @@
 #include <QMimeData>
 #include <QClipboard>
 #include <QDir>
+#include <QDesktopServices>
 
 #include "DlgDownloadAdd.h"
 #include "DownloadsTableModel.h"
@@ -38,7 +39,8 @@ MainWindow::MainWindow(QWidget *parent)
           QSharedPointer<CDownloadDatabase>::create( CDownloadManager::getDefaultDownloadDir() + QDir::separator() + "DnlManager.db" ) ) ),
     m_RunAction(nullptr),
     m_PauseAction(nullptr),
-    m_DeleteAction(nullptr)
+    m_DeleteAction(nullptr),
+    m_OpenFileDirAction(nullptr)
 {
     setWindowTitle("Download manager");
     setAcceptDrops(true);
@@ -123,15 +125,7 @@ void MainWindow::onIgnoreSSLErrors(bool checked)
 
 void MainWindow::onDbgTest()
 {
-    m_DownloadManagerPtr->newDownloadJob( QUrl("https://www.google.com"), CDownloadManager::getDefaultDownloadDir() );
-    qDebug() << "Adding test download";
-
-    QString str = "\\/:filename";
-    str.remove( ':' );
-    str.remove( '\\' );
-    str.remove( '/' );
-    qDebug() << str;
-
+    //m_DownloadManagerPtr->newDownloadJob( QUrl("https://www.google.com"), CDownloadManager::getDefaultDownloadDir() );
 }
 
 void MainWindow::onTimerRefresh()
@@ -206,6 +200,23 @@ void MainWindow::onRun()
 void MainWindow::onDelete()
 {
     doDelete();
+}
+
+void MainWindow::onOpenDownloadDir()
+{
+    QModelIndex currentIndex = m_DownloadsTable->currentIndex();
+
+    if ( !currentIndex.isValid() )
+        return;
+
+    auto Job = m_DownloadManagerPtr->getJob( currentIndex.row() );
+
+    if ( !Job )
+    {
+        return;
+    }
+
+    QDesktopServices::openUrl( QUrl( "file:///" + Job->getDirectory() ) );
 }
 
 void MainWindow::onDropFile(const QString &filePath)
@@ -377,6 +388,10 @@ void MainWindow::createToolbar()
     m_DeleteAction = new QAction( QApplication::style()->standardIcon(QStyle::SP_TrashIcon), "Delete", this );
     connect( m_DeleteAction, &QAction::triggered, this, &MainWindow::onDelete );
     toolbar->addAction(m_DeleteAction);
+
+    m_OpenFileDirAction = new QAction( QApplication::style()->standardIcon(QStyle::SP_DirOpenIcon), "Open directory", this );
+    connect( m_OpenFileDirAction, &QAction::triggered, this, &MainWindow::onOpenDownloadDir );
+    toolbar->addAction(m_OpenFileDirAction);
 }
 
 void MainWindow::createStatusBar()
@@ -401,6 +416,7 @@ void MainWindow::updateToolbarButtonsState()
         m_RunAction->setEnabled(false);
         m_PauseAction->setEnabled(false);
         m_DeleteAction->setEnabled(false);
+        m_OpenFileDirAction->setEnabled(false);
         return;
     }
 
@@ -412,7 +428,7 @@ void MainWindow::updateToolbarButtonsState()
     m_DeleteAction->setEnabled( Job->canDelete() );
     m_PauseAction->setEnabled( Job->canPause() );
     m_RunAction->setEnabled( Job->canRun() );
-
+    m_OpenFileDirAction->setEnabled(true);
 }
 
 void MainWindow::dropEvent(QDropEvent *event)

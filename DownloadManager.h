@@ -257,8 +257,8 @@ private:
 
 private:
 
-    void loadDatabase();
-    void saveDatabase();
+    void loadJobsFromDatabase();
+    void saveJobsToDatabase();
 
 };
 
