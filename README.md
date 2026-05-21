@@ -1,6 +1,6 @@
 # DnlManager
 
-DnlManager is a simple Download Manager written using Qt (6.4.2). 
+DnlManager is a simple Download Manager written using Qt. 
 
 ## Features
 - Supports HTTP & HTTPS targets
@@ -20,11 +20,11 @@ DnlManager is a simple Download Manager written using Qt (6.4.2).
   qmake6
 
   make  
-## License
-GPLv2
 
 ## Requirements
-- Qt 6.4.2 or later
+
+- Qt 6.4 or later
 
 ## License
-This project is licensed under the GPLv2 License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 (GPLv3).  
+See the [LICENSE](LICENSE) file for details.
